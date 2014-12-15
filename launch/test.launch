@@ -1,0 +1,42 @@
+<launch>
+  <node pkg="laser_slam"
+    name="laser_slam"
+    type="laser_slam"
+    output="screen">
+    <remap from="~scan_in" to="juliett/laser/scan"/>
+    <remap from="~imu_in" to="juliett/quad_decode_msg/imu"/>
+    <remap from="~output_data" to="juliett/output_data"/>
+    <param name="decay_rate" value="4"/>
+  </node>
+
+
+  <node pkg="nodelet"
+    type="nodelet"
+    name="laser_odom"
+    args="standalone using_markers/PoseVisualization">
+    <remap from="~odom" to="juliett/odom"/>
+    <param name="name" value="odom"/>
+    <param name="frame_id" value="laser"/>
+    <param name="text_scale_z" value="0.5"/>
+  </node>
+  <node pkg="nodelet"
+    type="nodelet"
+    name="vicon_odom"
+    args="standalone using_markers/PoseVisualization">
+    <remap from="~odom" to="juliett/odom_vicon"/>
+    <param name="name" value="vicon_odom"/>
+    <param name="frame_id" value="laser"/>
+    <param name="text_scale_z" value="0.5"/>
+  </node>
+  <!--
+  <node pkg="laser_pose_estimator_test"
+    type="laser_pose_estimator_test"  
+    name="pelican_slam"            
+    output="screen">               
+    <remap from="~quad_in" to="juliett/output_data"/>
+    <remap from="~scan_in" to="juliett/laser/scan"/>
+    <remap from="~odom" to="odom_laser_pose_estimator"/>
+    <param name="resolution" value="0.05"/>
+  </node>             
+-->
+</launch>
