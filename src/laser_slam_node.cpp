@@ -4,42 +4,47 @@
 #include "occ_grid.h"
 #include "canonical_scan.h"
 #include "scan_utils.hpp"
+#include "height_estimation.h"
 
 using namespace laser_slam;
 
 ScanUtils scan_utils;
 OccGrid occ_grid;
 CanonicalScan scan_matcher;
+HeightEstimation height_estimation;
 
+static ros::Publisher raw_laser_cloud_pub;
 static ros::Publisher prev_cloud_pub;
 static ros::Publisher curr_cloud_pub;
 static ros::Publisher covar_pub;
 static ros::Publisher pose_pub;
+static ros::Publisher odom_pub;
 static ros::Publisher map_pub;
-
 
 static Eigen::Matrix3d R_;
 static bool first_scan_;
 static bool first_imu_;
 static double prev_yaw_imu_;
 static std_msgs::Header laser_header_;
-static std_msgs::Header imu_header_;
 
 static gtsam::Pose2 curr_pose_;
 static gtsam::Pose2 predicted_pose_;
 
 static LDP prev_ldp_;
 static sensor_msgs::PointCloud prev_cloud_w_;
+static Eigen::Vector3d ypr_ = Eigen::Vector3d::Zero();
 
 static int num_scan_ = 0;
-static int decay_rate_ = 0;
+static int decay_rate_;
+static std::string frame_id_;
+static double occ_res_ = 0.1;
+static double cloud_res_ = 0.05;
 
-void covarPub(const gtsam::Matrix& m)
+void covarPub(const gtsam::Matrix& m, Eigen::Vector3d& v)
 {
   Eigen::Quaterniond q;
-  Eigen::Vector3d v;
-
   bool valid = eigenValue(m, q, v);
+
   if(valid){
     visualization_msgs::Marker covar;
     covar.ns = "covar_visualization";
@@ -66,10 +71,26 @@ void covarPub(const gtsam::Matrix& m)
   }
 }
 
+void publishOdom(const geometry_msgs::PoseStamped& pose)
+{
+  nav_msgs::Odometry odom;
+  odom.header = pose.header;
+  odom.pose.pose = pose.pose;
+  odom.pose.covariance[0+0*6] = 0.01*0.01;
+  odom.pose.covariance[1+1*6] = 0.01*0.01;
+  odom.pose.covariance[2+2*6] = 0.01*0.01;
+  odom.pose.covariance[3+3*6] = 0.01*0.01;
+  odom.pose.covariance[4+4*6] = 0.03*0.03;
+  odom.pose.covariance[5+5*6] = 0.03*0.03;
+
+  odom_pub.publish(odom);
+}
+
 void update_map(const sensor_msgs::PointCloud& cloud_curr)
 {
   sensor_msgs::PointCloud cloud_curr_w = 
-    scan_utils.transform_cloud(cloud_curr, curr_pose_);
+    scan_utils.transform_cloud(cloud_curr, curr_pose_, frame_id_);
+
   if(num_scan_ > decay_rate_)
   {
     num_scan_ = 0;
@@ -78,20 +99,22 @@ void update_map(const sensor_msgs::PointCloud& cloud_curr)
   else
     num_scan_++;
 
-  occ_grid.AddLaser(curr_pose_, scan_utils.down_sample_cloud(cloud_curr, 0.05));
+  occ_grid.AddLaser(curr_pose_, scan_utils.down_sample_cloud(cloud_curr, occ_res_));
+
   prev_cloud_w_ = scan_utils.merge_cloud(prev_cloud_w_, cloud_curr_w);
-  prev_cloud_w_ = scan_utils.voxel_filter(prev_cloud_w_, 0.025);
+  prev_cloud_w_ = scan_utils.voxel_filter(prev_cloud_w_, cloud_res_);
+
+
   prev_cloud_w_ = occ_grid.filterCloud(prev_cloud_w_);
 
   sensor_msgs::PointCloud prev_cloud_b = 
-    scan_utils.transform_cloud(prev_cloud_w_, curr_pose_.inverse());
+    scan_utils.transform_cloud(prev_cloud_w_, curr_pose_.inverse(), cloud_curr.header.frame_id);
 
   prev_cloud_b = scan_utils.pass_filter(prev_cloud_b);
-  scan_utils.sort_cloud(prev_cloud_b);
 
   scan_matcher.pointCloudToLDP(prev_cloud_b, prev_ldp_);
 
-  prev_cloud_w_ = scan_utils.transform_cloud(prev_cloud_b, curr_pose_);
+  prev_cloud_w_ = scan_utils.transform_cloud(prev_cloud_b, curr_pose_, frame_id_);
 
   curr_cloud_pub.publish(cloud_curr_w);
 }
@@ -99,14 +122,24 @@ void update_map(const sensor_msgs::PointCloud& cloud_curr)
 
 void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
-  laser_header_ = msg->header;
-  sensor_msgs::LaserScan scan_out = scan_utils.scan_filter(*msg);
+  ros::Time t0 = ros::Time::now();
+
+  laser_header_.stamp = msg->header.stamp;
+  laser_header_.frame_id = frame_id_;
+
+  std::vector<double> height_array;
+  sensor_msgs::LaserScan scan_out = scan_utils.scan_filter(*msg, height_array);
+
+  height_estimation.process_height_measure(height_array[5]);
+
   sensor_msgs::PointCloud cloud = scan_utils.scan_to_cloud(scan_out, M_PI/4);
+  raw_laser_cloud_pub.publish(cloud);
   sensor_msgs::PointCloud cloud2d = scan_utils.project_cloud(R_, cloud);
-  sensor_msgs::PointCloud cloud_curr = scan_utils.down_sample_cloud(cloud2d, 0.025);
+  sensor_msgs::PointCloud cloud_curr = scan_utils.down_sample_cloud(cloud2d, cloud_res_);
 
   LDP curr_ldp;
   scan_matcher.pointCloudToLDP(cloud_curr, curr_ldp);
+
 
   if(first_scan_)
   {
@@ -120,58 +153,67 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     prev_cloud_pub.publish(prev_cloud_w_);
     gtsam::Pose2 pose_diff;
     gtsam::Matrix noise_matrix;
-    ros::Time t1 = ros::Time::now();
-  
+
     bool valid_match = scan_matcher.processScan2D(curr_ldp, prev_ldp_, predicted_pose_, pose_diff, noise_matrix);
     if(!valid_match)
     {
       ROS_ERROR("cannot match!!!");
       return;
     }
-    double dt = (ros::Time::now() - t1).toSec();
-    if(dt > 0.01){
-      ROS_INFO("Points [%zu, %zu]", prev_cloud_w_.points.size(), cloud_curr.points.size());
-      ROS_INFO("Time cost for scan matcher: %f", dt);
-    }
-    t1 = ros::Time::now();
 
     curr_pose_ = curr_pose_.compose(pose_diff);
+    gtsam::Pose3 curr_pose3 = transferPose2ToPose3(curr_pose_, height_estimation.get_height(), ypr_(2), ypr_(1));
+    geometry_msgs::PoseStamped pose_stamped = transferPoseToPoseStamped(curr_pose3, laser_header_);
+    pose_pub.publish(pose_stamped);
+
+    //covarPub(noise_matrix);
+    publishOdom(pose_stamped);
+    double dt = (ros::Time::now() - t0).toSec();
+    if(dt > 0.02){
+      ROS_WARN("Time cost for process scan matcher: %f", dt);
+    }
+ 
+  //  double dt = (ros::Time::now() - t0).toSec();
+  //  ROS_INFO("Time cost for scan matcher: %f", dt);
     update_map(cloud_curr);
-    dt = (ros::Time::now() - t1).toSec();
-    if(dt > 0.01)
-      ROS_WARN("Total time cost for update map and scan: %f", dt);
-    // Publishers 
-    pose_pub.publish(transferPose2ToPoseStamped(curr_pose_, laser_header_));
-    covarPub(noise_matrix);
-  }
+
+    // Publishers
+ }
   predicted_pose_ = gtsam::Pose2();
 
-  map_pub.publish(occ_grid.GetMap().map); 
+  double dt = (ros::Time::now() - t0).toSec();
+  if(dt > 0.05){
+    ROS_WARN("Points [%zu, %zu]", prev_cloud_w_.points.size(), cloud_curr.points.size());
+    ROS_WARN("Time cost for process one scan: %f", dt);
+  }
+  else
+    map_pub.publish(occ_grid.GetMap(frame_id_).map); 
 }
 
 void imuCallback(const sensor_msgs::Imu::ConstPtr& msg)
 {
-  imu_header_ = msg->header;
-  Eigen::Vector3d ypr = scan_utils.getYPRFromImu(msg);
-  R_(0,0) = cos(ypr(1));
-  R_(0,1) = sin(ypr(2))*sin(ypr(1));
-  R_(0,2) = cos(ypr(2))*sin(ypr(1));
+  ypr_ = scan_utils.getYPRFromImu(msg);
+  R_(0,0) = cos(ypr_(1));
+  R_(0,1) = sin(ypr_(2))*sin(ypr_(1));
+  R_(0,2) = cos(ypr_(2))*sin(ypr_(1));
   R_(1,0) = 0;
-  R_(1,1) = cos(ypr(2));
-  R_(1,2) = -sin(ypr(2));
-  R_(2,0) = -sin(ypr(1));
-  R_(2,1) = sin(ypr(2))*cos(ypr(1));
-  R_(2,2) = cos(ypr(2))*cos(ypr(1));
+  R_(1,1) = cos(ypr_(2));
+  R_(1,2) = -sin(ypr_(2));
+  R_(2,0) = -sin(ypr_(1));
+  R_(2,1) = sin(ypr_(2))*cos(ypr_(1));
+  R_(2,2) = cos(ypr_(2))*cos(ypr_(1));
+
+  height_estimation.process_imu(*msg, R_);
 
   if(!first_scan_)
   {
     if(!first_imu_){
-      gtsam::Pose2 dp (0.0, 0.0, ypr(0) - prev_yaw_imu_);
+      gtsam::Pose2 dp (0.0, 0.0, ypr_(0) - prev_yaw_imu_);
       predicted_pose_ = predicted_pose_.compose(dp);
     }
     else
       first_imu_ = false;
-    prev_yaw_imu_ = ypr(0);
+    prev_yaw_imu_ = ypr_(0);
   } 
 }
 
@@ -191,12 +233,14 @@ int main(int argc, char ** argv)
   ros::init(argc, argv, "laser_slam_node");
 
   ros::NodeHandle nh("~");
-  
+ 
   nh.param("decay_rate", decay_rate_, -1);
+  nh.param("frame_id", frame_id_, std::string("map"));
   ROS_WARN("LaserSlam: decay_rate = %d", decay_rate_);
 
 
   scan_matcher.initParams(nh);
+  occ_grid.SetRes(occ_res_);
 
   R_ = Eigen::Matrix3d::Identity();
   first_scan_ = true;
@@ -206,10 +250,12 @@ int main(int argc, char ** argv)
   ros::Subscriber scan_sub = nh.subscribe("scan_in", 10, scanCallback);
   ros::Subscriber imu_sub = nh.subscribe("imu_in", 10, imuCallback);
   ros::Subscriber outputdata_sub = nh.subscribe("output_data", 10, outputdataCallback);
+  raw_laser_cloud_pub = nh.advertise<sensor_msgs::PointCloud>("raw_laser_cloud", 10);
   prev_cloud_pub = nh.advertise<sensor_msgs::PointCloud>("prev_cloud", 10);
   curr_cloud_pub = nh.advertise<sensor_msgs::PointCloud>("curr_cloud", 10);
   covar_pub = nh.advertise<visualization_msgs::Marker>("covar", 10);
   pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose", 10);
+  odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 10);
   map_pub = nh.advertise<nav_msgs::OccupancyGrid>("map", 5);
 
 

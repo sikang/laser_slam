@@ -1,36 +1,10 @@
 <launch>
-  <group ns="juliett">
 
-  <node pkg="laser_slam"
-    name="pelican_slam"
-    type="laser_slam"
-    output="screen">
-    <remap from="~scan_in" to="laser/scan"/>
-    <remap from="~imu_in" to="quad_decode_msg/imu"/>
-    <remap from="~output_data" to="output_data"/>
-    <remap from="~odom" to="odom_csm"/>
-    <param name="decay_rate" value="99"/>
-  </node>
-  <!--
-  <node pkg="quadrotor_ukf"
-    type="quadrotor_ukf"
-    name="quadrotor_ukf"
-    output="screen">
-    <rosparam file="$(find quadrotor_ukf)/config/params.yaml"/>
-    <remap from="~output_data" to="output_data"/>
-    <remap from="~odom_slam" to="odom_csm"/>
-    <remap from="~odom_vo" to="odom_vo"/>
-    <remap from="~odom_out" to="ukf_odom"/>
-    <param name="frame_id" value="map"/>
-  </node>
--->
-  </group>
-
-  <node pkg="nodelet"
+ <node pkg="nodelet"
     type="nodelet"
     name="laser_odom"
     args="standalone using_markers/PoseVisualization">
-    <remap from="~odom" to="juliett/odom"/>
+    <remap from="~odom" to="juliett/ukf_odom"/>
     <param name="name" value="odom"/>
     <param name="frame_id" value="map"/>
     <param name="text_scale_z" value="0.5"/>

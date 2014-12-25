@@ -6,10 +6,7 @@ namespace laser_slam
 
   bool comp(geometry_msgs::Point32 p1, geometry_msgs::Point32 p2)
   {
-    double theta1 = angles::normalize_angle_positive(atan2(p1.y, p1.x) - MIN_THETA);
-    double theta2 = angles::normalize_angle_positive(atan2(p2.y, p2.x) - MIN_THETA);
-
-    return (theta1 < theta2);
+    return (p1.z < p2.z);
   }
 
 
@@ -27,9 +24,10 @@ namespace laser_slam
     return ypr;
   }
 
-  sensor_msgs::PointCloud ScanUtils::transform_cloud(const sensor_msgs::PointCloud& cloud, const gtsam::Pose2& pose)
+  sensor_msgs::PointCloud ScanUtils::transform_cloud(const sensor_msgs::PointCloud& cloud, const gtsam::Pose2& pose, const std::string& frame_id)
   {
     sensor_msgs::PointCloud new_cloud = cloud;
+    new_cloud.header.frame_id = frame_id;
     double co = cos(pose.theta());
     double so = sin(pose.theta());
     for(size_t i = 0; i < new_cloud.points.size(); i++)
@@ -52,33 +50,24 @@ namespace laser_slam
     return new_cloud;
   }
 
-  void ScanUtils::sort_cloud(sensor_msgs::PointCloud& cloud)
-  {
-    std::sort(cloud.points.begin(), cloud.points.end(), comp);
-  }
-
-
   sensor_msgs::PointCloud ScanUtils::pass_filter(const sensor_msgs::PointCloud& cloud)
   {
     sensor_msgs::PointCloud new_cloud;
     new_cloud.header = cloud.header;
 
-    std::vector<geometry_msgs::Point32> pts_ordered;
-
     for(size_t i = 0; i< cloud.points.size(); i++ )
     {
-      double d = hypot(cloud.points[i].x, cloud.points[i].y);
-      double theta = atan2(cloud.points[i].y, cloud.points[i].x);
-      if(d >= 0.1 && d <= 30 && (theta > MIN_THETA || theta < MAX_THETA))
-        new_cloud.points.push_back(cloud.points[i]);
+      geometry_msgs::Point32 pt = cloud.points[i];
+      double d = hypot(pt.x, pt.y);
+      pt.z = angles::normalize_angle_positive(atan2(pt.y, pt.x) - MIN_THETA);
+      if(d >= 0.1 && d <= 30 && pt.z < M_PI*7/4)
+        new_cloud.points.push_back(pt);
     }
-//    std::sort(pts_ordered.begin(), pts_ordered.end(), comp);
-    /*
-       double t1 = atan2(new_cloud.points[0].y, new_cloud.points[0].x);
-       double t2 = atan2(new_cloud.points.back().y, new_cloud.points.back().x);
-       printf("theta[0] = %f, theta[n] = %f\n", t1, t2);
-       */
-    return new_cloud;
+    std::sort(new_cloud.points.begin(), new_cloud.points.end(), comp);
+
+    for(size_t i = 0; i< new_cloud.points.size(); i++)
+      new_cloud.points[i].z = 0;
+   return new_cloud;
   }
 
 
@@ -170,11 +159,14 @@ namespace laser_slam
     return new_cloud;
   }
 
-  sensor_msgs::LaserScan ScanUtils::scan_filter(const sensor_msgs::LaserScan& scan)
+  sensor_msgs::LaserScan ScanUtils::scan_filter(const sensor_msgs::LaserScan& scan, std::vector<double>& heights)
   {
     sensor_msgs::LaserScan scan_filtered = scan;
-    for(int k = -38; k < 38; k++)
+    for(int k = -38; k < 38; k++){
+      if(k >= 0 && k <= 10)
+        heights.push_back(scan_filtered.ranges[968 + k]);
       scan_filtered.ranges[968 + k] = std::numeric_limits<float>::quiet_NaN();
+    }
     return scan_filtered;
   }
 }

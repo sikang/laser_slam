@@ -20,6 +20,7 @@ catkin_simple()
 cs_add_executable(laser_slam src/laser_slam_node.cpp
   src/scan_utils.cpp
   src/occ_grid.cpp
+  src/height_estimation.cpp
   src/canonical_scan.cpp)
 target_link_libraries(laser_slam gtsam ${csm_LIBRARIES} gsl)
 

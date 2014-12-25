@@ -18,14 +18,14 @@ namespace laser_slam
   {
     public:
       Eigen::Vector3d getYPRFromImu(const sensor_msgs::Imu::ConstPtr& msg);
-      sensor_msgs::PointCloud transform_cloud(const sensor_msgs::PointCloud& cloud, const gtsam::Pose2& pose);
+      sensor_msgs::PointCloud transform_cloud(const sensor_msgs::PointCloud& cloud, const gtsam::Pose2& pose, const std::string& frame_id);
       sensor_msgs::PointCloud merge_cloud(const sensor_msgs::PointCloud& cloud1, const sensor_msgs::PointCloud& cloud2);
       sensor_msgs::PointCloud pass_filter(const sensor_msgs::PointCloud& cloud);
       sensor_msgs::PointCloud project_cloud(const Eigen::Matrix3d& R, const sensor_msgs::PointCloud& cloud);
       sensor_msgs::PointCloud down_sample_cloud(const sensor_msgs::PointCloud& cloud, double res);
       sensor_msgs::PointCloud voxel_filter(const sensor_msgs::PointCloud& cloud, double res);
       void sort_cloud(sensor_msgs::PointCloud& cloud);
-      sensor_msgs::LaserScan scan_filter(const sensor_msgs::LaserScan& scan);
+      sensor_msgs::LaserScan scan_filter(const sensor_msgs::LaserScan& scan, std::vector<double>& heights);
       sensor_msgs::PointCloud scan_to_cloud(const sensor_msgs::LaserScan& scan, double theta = 0.0);
   };
 

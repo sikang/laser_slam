@@ -105,32 +105,11 @@ namespace laser_slam{
   }
 
 
-  void OccGrid::AddOccupied(int2 end, boost::unordered_set<int> &occupied) 
+  void OccGrid::AddBeam(int2 start, int2 end) 
   {
-    int cur_index = end.x  + end.y * dim_.x;
-
-    if(occupied.count(cur_index) > 0)
-      return;
-
     char* cell;
     if (GetCell(end, cell))
       IncSafe(*cell);
-    occupied.insert(cur_index);
-  }
-
-
-  void OccGrid::AddBeam(int2 start, int2 end, 
-      const boost::unordered_set<int>& occupied,
-      boost::unordered_set<int> &ignore) 
-  {
-    int cur_index = end.x  + end.y * dim_.x;
-
-    if(ignore.count(cur_index) > 0)
-      return;
-
-    ignore.insert(cur_index);
-
-    char* cell;
 
     bool steep = abs(end.y - start.y) > abs(end.x - start.x);
     if (steep) {
@@ -175,7 +154,6 @@ namespace laser_slam{
         test_p.y = y;
       }
       if (GetCell(test_p, cell))
-        if (occupied.find(index) == ignore.end()) 
           DecSafe(*cell);
       error -= delta_y;
       if (error < 0) {
@@ -189,9 +167,9 @@ namespace laser_slam{
   bool OccGrid::AddLaser(const gtsam::Pose2& pose, const sensor_msgs::PointCloud& cloud) 
   {
     //vote the beams in, clear out along the beam
-    double yaw = pose.theta();
-    double co = cos(yaw);
-    double so = sin(yaw);
+    
+    float co = cos(pose.theta());
+    float so = sin(pose.theta());
     int max_x = origin_.x + dim_.x;
     int max_y = origin_.y + dim_.y;
     int min_x = origin_.x;
@@ -228,27 +206,27 @@ namespace laser_slam{
       new_dim.y += expand_dim_ + max_y - (origin_.y + dim_.y);
 
     bool expanded = Allocate(new_dim, new_origin);
+
     int2 robot;
     robot.x = pose.x() / res - origin_.x;
     robot.y = pose.y() / res - origin_.y;
 
-    boost::unordered_set<int> occupied_voxels;
-    boost::unordered_set<int> ignored_beams;
 
-    std::vector<int2> ends;
-    ends.resize(cloud.points.size());
+    int2 end;
+    int2 end_p(-1, -1);
     for (size_t i = 0; i < cloud.points.size(); i++) {
-      ends[i].x = (pose.x() + co * cloud.points[i].x - so * cloud.points[i].y) / res - origin_.x;
-      ends[i].y = (pose.y() + so * cloud.points[i].x + co * cloud.points[i].y) / res - origin_.y;
-      AddOccupied(ends[i], occupied_voxels);
+      end.x = (pose.x() + co * cloud.points[i].x - so * cloud.points[i].y) / res - origin_.x;
+      end.y = (pose.y() + so * cloud.points[i].x + co * cloud.points[i].y) / res - origin_.y;
+
+       if(end.x != end_p.x || end.y != end_p.y)
+          AddBeam(robot, end);
+        end_p = end;
     }
-    for (size_t i = 0; i < ends.size(); i++)
-      AddBeam(robot, ends[i], occupied_voxels, ignored_beams);
 
     return expanded;
   }
 
-  nav_msgs::GetMap::Response OccGrid::GetMap() 
+  nav_msgs::GetMap::Response OccGrid::GetMap(const std::string& frame_id) 
   {
     nav_msgs::GetMap::Response map_;
     map_.map.info.resolution = res;
@@ -266,8 +244,8 @@ namespace laser_slam{
     map_.map.info.origin.position.x = (origin_.x) * res;
     map_.map.info.origin.position.y = (origin_.y) * res;
     map_.map.data.resize(map_.map.info.width * map_.map.info.height);
-    for(int x=0; x < dim_.x; x++)
-      for(int y=0; y < dim_.y; y++)
+    for(int x = 0; x < dim_.x; x++)
+      for(int y = 0; y < dim_.y; y++)
       {
         char val = map[x][y];
         if (val == VAL_UNKNOWN)
@@ -278,7 +256,7 @@ namespace laser_slam{
           map_.map.data[MAP_IDX(map_.map.info.width, x, y)] = 0;
 
       }
-    map_.map.header.frame_id = "laser";
+    map_.map.header.frame_id = frame_id;
     return map_;
   }
 

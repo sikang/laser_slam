@@ -63,21 +63,12 @@ namespace laser_slam{
       void SetRes(double res_);
       bool Allocate(int2 new_dim, int2 new_ori);
       void Clear();
-      void AddOccupied(int2 end, boost::unordered_set<int> &occupied);
-      void AddBeam(int2 start, int2 end, 
-          const boost::unordered_set<int>& occupied, 
-          boost::unordered_set<int> &ignore);
+      void AddBeam(int2 start, int2 end);
       bool GetCell(int2 pose, char*& cell);
       bool AddLaser(const gtsam::Pose2& pose, 
           const sensor_msgs::PointCloud& cloud);
-      nav_msgs::GetMap::Response GetMap();
+      nav_msgs::GetMap::Response GetMap(const std::string& frame_id);
       sensor_msgs::PointCloud filterCloud(const sensor_msgs::PointCloud& cloud);
       void decayMap(char dec = 1);
-      void Set(size_t i, size_t j, char val) {
-        map[i][j] = val;
-      }
-      char Get(size_t i, size_t j) {
-        return map[i][j];
-      }
   };
 }

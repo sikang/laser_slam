@@ -41,11 +41,11 @@ namespace laser_slam
 
     // Maximum ICP cycle iterations
     if (!nh_private_.getParam ("max_iterations", input_.max_iterations))
-      input_.max_iterations = 20;
+      input_.max_iterations = 10;
 
     // A threshold for stopping (m)
     if (!nh_private_.getParam ("epsilon_xy", input_.epsilon_xy))
-      input_.epsilon_xy = 0.0001;
+      input_.epsilon_xy = 0.001;
 
     // A threshold for stopping (rad)
     if (!nh_private_.getParam ("epsilon_theta", input_.epsilon_theta))
@@ -53,7 +53,7 @@ namespace laser_slam
 
     // Maximum distance for a correspondence to be valid
     if (!nh_private_.getParam ("max_correspondence_dist", input_.max_correspondence_dist))
-      input_.max_correspondence_dist = 0.30;
+      input_.max_correspondence_dist = 0.40;
 
     // Noise in the scan (m)
     if (!nh_private_.getParam ("sigma", input_.sigma))
@@ -85,7 +85,7 @@ namespace laser_slam
 
     // Number of neighbour rays used to estimate the orientation
     if (!nh_private_.getParam ("orientation_neighbourhood", input_.orientation_neighbourhood))
-      input_.orientation_neighbourhood = 50;//20;
+      input_.orientation_neighbourhood = 20;//20;
 
     // If 0, it's vanilla ICP
     if (!nh_private_.getParam ("use_point_to_line_distance", input_.use_point_to_line_distance))
@@ -131,7 +131,7 @@ namespace laser_slam
 
     // If 1, computes the covariance of ICP using the method http://purl.org/censi/2006/icpcov
     if (!nh_private_.getParam ("do_compute_covariance", input_.do_compute_covariance))
-      input_.do_compute_covariance = 1;
+      input_.do_compute_covariance = 0;
 
     // Checks that find_correspondences_tricks gives the right answer
     if (!nh_private_.getParam ("debug_verify_tricks", input_.debug_verify_tricks))
@@ -235,8 +235,8 @@ namespace laser_slam
     if (output_.valid)
     {
       output_rel_pose = gtsam::Pose2(output_.x[0], output_.x[1], output_.x[2]);
-      bool valid;
-      noise_matrix = gsl_to_gtsam_matrix(output_.cov_x_m, valid);
+      //bool valid;
+      //noise_matrix = gsl_to_gtsam_matrix(output_.cov_x_m, valid);
     }
 
     return output_.valid;
