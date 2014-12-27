@@ -6,12 +6,12 @@
     name="pelican_slam"
     type="laser_slam"
     output="screen">
-    <remap from="~scan_in" to="laser/scan"/>
+    <remap from="~scan_in" to="/scan"/>
     <remap from="~imu_in" to="/kquad_interface/robot1/imu"/>
     <remap from="~output_data" to="output_data"/>
     <remap from="~odom" to="odom_csm"/>
-    <param name="decay_rate" value="9"/>
-    <rosparam file="$(find laser_slam)/config/$(arg robot).yaml"/>
+    <param name="decay_rate" value="49"/>
+    <rosparam file="$(find laser_slam)/config/khex.yaml"/>
   </node>
 
   <node pkg="quadrotor_ukf"

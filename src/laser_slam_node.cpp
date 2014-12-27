@@ -37,8 +37,9 @@ static Eigen::Vector3d ypr_ = Eigen::Vector3d::Zero();
 static int num_scan_ = 0;
 static int decay_rate_;
 static std::string frame_id_;
-static double occ_res_ = 0.1;
-static double cloud_res_ = 0.05;
+static double occ_res_;
+static double cloud_res_;
+static double shift_yaw_;
 
 void covarPub(const gtsam::Matrix& m, Eigen::Vector3d& v)
 {
@@ -116,8 +117,9 @@ void update_map(const sensor_msgs::PointCloud& cloud_curr)
 
   prev_cloud_w_ = scan_utils.transform_cloud(prev_cloud_b, curr_pose_, frame_id_);
 
-  curr_cloud_pub.publish(cloud_curr_w);
+  curr_cloud_pub.publish(cloud_curr);
 }
+
 
 
 void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
@@ -128,11 +130,13 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
   laser_header_.frame_id = frame_id_;
 
   std::vector<double> height_array;
+
   sensor_msgs::LaserScan scan_out = scan_utils.scan_filter(*msg, height_array);
 
   height_estimation.process_height_measure(height_array[5]);
 
-  sensor_msgs::PointCloud cloud = scan_utils.scan_to_cloud(scan_out, M_PI/4);
+  sensor_msgs::PointCloud cloud = scan_utils.scan_to_cloud(scan_out, shift_yaw_);
+  cloud.header = laser_header_;
   raw_laser_cloud_pub.publish(cloud);
   sensor_msgs::PointCloud cloud2d = scan_utils.project_cloud(R_, cloud);
   sensor_msgs::PointCloud cloud_curr = scan_utils.down_sample_cloud(cloud2d, cloud_res_);
@@ -146,7 +150,7 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     first_scan_ = false;
     prev_cloud_w_ = cloud_curr;
     prev_ldp_ = curr_ldp;
-    occ_grid.AddLaser(curr_pose_, scan_utils.down_sample_cloud(cloud_curr, 0.05));
+    occ_grid.AddLaser(curr_pose_, scan_utils.down_sample_cloud(cloud_curr, occ_res_));
   }
   else
   {
@@ -154,13 +158,8 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     gtsam::Pose2 pose_diff;
     gtsam::Matrix noise_matrix;
 
-    bool valid_match = scan_matcher.processScan2D(curr_ldp, prev_ldp_, predicted_pose_, pose_diff, noise_matrix);
-    if(!valid_match)
-    {
-      ROS_ERROR("cannot match!!!");
-      return;
-    }
-
+    ros::Time t1 = ros::Time::now();
+    scan_matcher.processScan2D(curr_ldp, prev_ldp_, predicted_pose_, pose_diff, noise_matrix);
     curr_pose_ = curr_pose_.compose(pose_diff);
     gtsam::Pose3 curr_pose3 = transferPose2ToPose3(curr_pose_, height_estimation.get_height(), ypr_(2), ypr_(1));
     geometry_msgs::PoseStamped pose_stamped = transferPoseToPoseStamped(curr_pose3, laser_header_);
@@ -168,26 +167,23 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 
     //covarPub(noise_matrix);
     publishOdom(pose_stamped);
-    double dt = (ros::Time::now() - t0).toSec();
-    if(dt > 0.02){
+    double dt = (ros::Time::now() - t1).toSec();
+    if(dt > 0.01)
       ROS_WARN("Time cost for process scan matcher: %f", dt);
-    }
- 
-  //  double dt = (ros::Time::now() - t0).toSec();
-  //  ROS_INFO("Time cost for scan matcher: %f", dt);
-    update_map(cloud_curr);
+    else
+      ROS_INFO("Time cost for process scan matcher: %f", dt);
 
-    // Publishers
- }
+
+    update_map(cloud_curr);
+  }
   predicted_pose_ = gtsam::Pose2();
 
   double dt = (ros::Time::now() - t0).toSec();
-  if(dt > 0.05){
+  if(dt > 0.020){
     ROS_WARN("Points [%zu, %zu]", prev_cloud_w_.points.size(), cloud_curr.points.size());
     ROS_WARN("Time cost for process one scan: %f", dt);
   }
-  else
-    map_pub.publish(occ_grid.GetMap(frame_id_).map); 
+  map_pub.publish(occ_grid.GetMap(frame_id_).map); 
 }
 
 void imuCallback(const sensor_msgs::Imu::ConstPtr& msg)
@@ -239,8 +235,26 @@ int main(int argc, char ** argv)
   ROS_WARN("LaserSlam: decay_rate = %d", decay_rate_);
 
 
+  int idx_width, idx_middle, height_idx_low, height_idx_up;
+  double min_theta, range_theta;
+  nh.param("idx_width", idx_width, 38);
+  nh.param("idx_middle", idx_middle, 968);
+  nh.param("height_idx_low", height_idx_low, 0);
+  nh.param("height_idx_up", height_idx_up, 10);
+
+  nh.param("min_theta", min_theta, -M_PI/2);
+  nh.param("range_theta", range_theta, M_PI*7/4);
+
+  nh.param("shift_yaw", shift_yaw_, M_PI/4);
+
+  nh.param("occ_res", occ_res_, 0.1);
+  nh.param("cloud_res", cloud_res_, 0.08);
+
   scan_matcher.initParams(nh);
   occ_grid.SetRes(occ_res_);
+  scan_utils.init_scan_filter(idx_width, idx_middle,
+      height_idx_low, height_idx_up,
+      min_theta, range_theta);
 
   R_ = Eigen::Matrix3d::Identity();
   first_scan_ = true;

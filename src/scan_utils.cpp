@@ -9,7 +9,6 @@ namespace laser_slam
     return (p1.z < p2.z);
   }
 
-
   Eigen::Vector3d ScanUtils::getYPRFromImu(const sensor_msgs::Imu::ConstPtr& msg)
   {
     double q0 = msg->orientation.w;
@@ -59,8 +58,8 @@ namespace laser_slam
     {
       geometry_msgs::Point32 pt = cloud.points[i];
       double d = hypot(pt.x, pt.y);
-      pt.z = angles::normalize_angle_positive(atan2(pt.y, pt.x) - MIN_THETA);
-      if(d >= 0.1 && d <= 30 && pt.z < M_PI*7/4)
+      pt.z = angles::normalize_angle_positive(atan2(pt.y, pt.x) - min_theta);
+      if(d >= 0.1 && d <= 30 && pt.z < range_theta)
         new_cloud.points.push_back(pt);
     }
     std::sort(new_cloud.points.begin(), new_cloud.points.end(), comp);
@@ -126,7 +125,7 @@ namespace laser_slam
     float angle_increment = scan.angle_increment;
     for(size_t i = 0; i < scan.ranges.size(); i++)
     {
-      if(scan.range_min <= scan.ranges[i] && scan.ranges[i] <= scan.range_max){
+      if(0.5 <= scan.ranges[i] && scan.ranges[i] <= scan.range_max){
         float curr_angle = angle_min + i * angle_increment;
         float x = scan.ranges[i]*cos(curr_angle);
         float y = scan.ranges[i]*sin(curr_angle);
@@ -159,14 +158,31 @@ namespace laser_slam
     return new_cloud;
   }
 
+
+
+  void ScanUtils::init_scan_filter(int _idx_width, int _idx_middle, 
+      int _height_idx_low, int _height_idx_up,
+      double _min_theta, double _range_theta)
+  {
+    idx_width = _idx_width;
+    idx_middle = _idx_middle;
+    height_idx_low = _height_idx_low;
+    height_idx_up = _height_idx_up;
+
+    min_theta = _min_theta;
+    range_theta = _range_theta;
+  }
+
+
   sensor_msgs::LaserScan ScanUtils::scan_filter(const sensor_msgs::LaserScan& scan, std::vector<double>& heights)
   {
     sensor_msgs::LaserScan scan_filtered = scan;
-    for(int k = -38; k < 38; k++){
-      if(k >= 0 && k <= 10)
-        heights.push_back(scan_filtered.ranges[968 + k]);
-      scan_filtered.ranges[968 + k] = std::numeric_limits<float>::quiet_NaN();
+    for(int k = -idx_width; k < idx_width; k++){
+      if(k >= height_idx_low && k <= height_idx_up)
+        heights.push_back(scan_filtered.ranges[idx_middle + k]);
+      scan_filtered.ranges[idx_middle + k] = std::numeric_limits<float>::quiet_NaN();
     }
     return scan_filtered;
   }
+
 }

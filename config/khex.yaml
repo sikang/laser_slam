@@ -1,0 +1,21 @@
+#### scan filter params ####
+idx_width: 38
+idx_middle: 198
+height_idx_low: 0
+height_idx_up: 10
+ 
+#### grid params ####
+occ_res: 0.1
+cloud_res: 0.08
+shift_yaw: 0.0
+
+min_theta: -2.357
+
+#### csm params ####
+max_angular_correction_deg: 2.5
+max_linear_correction: 0.5
+max_iterations: 5
+epsilon_xy: 0.001
+epsilon_theta: 0.01
+max_correspondence_dist: 1.0
+do_compute_covariance: 0

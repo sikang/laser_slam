@@ -12,13 +12,6 @@
 #include <gtsam/geometry/Pose2.h>
 #include <gtsam/linear/NoiseModel.h>
 #include <angles/angles.h>
-#ifndef MIN_THETA
-#define MIN_THETA -M_PI/2
-#endif
-#ifndef MAX_THETA
-#define MAX_THETA -M_PI*3/4
-#endif
-
 
 namespace laser_slam
 {
@@ -46,6 +39,8 @@ namespace laser_slam
       double csm_range_min_;
       double csm_range_max_;
       gtsam::Vector6 noise_vector6;
+
+      double min_theta;
   };
 
 }

@@ -16,9 +16,8 @@ namespace laser_slam
   {
     nh_private_.param ("csm_range_min", csm_range_min_, 0.1);
     nh_private_.param ("csm_range_max", csm_range_max_, 30.0);
-    // nh_private_.param ("max_correspondence_dist_",max_correspondence_dist_,1.5);
-    // nh_private_.param ("max_correspondence_theta_",max_correspondence_theta_,M_PI/4);
-    // nh_private_.param ("pose_index_thresh_",pose_index_thresh_,50);
+    nh_private_.param ("min_theta", min_theta, -M_PI/2);
+
     input_.min_reading = csm_range_min_;
     input_.max_reading = csm_range_max_;
     noise_vector6 << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
@@ -33,15 +32,15 @@ namespace laser_slam
 
     // Maximum angular displacement between scans
     if (!nh_private_.getParam ("max_angular_correction_deg", input_.max_angular_correction_deg))
-      input_.max_angular_correction_deg = 5.0;
+      input_.max_angular_correction_deg = 2.5;
 
     // Maximum translation between scans (m)
     if (!nh_private_.getParam ("max_linear_correction", input_.max_linear_correction))
-      input_.max_linear_correction = 0.20;
+      input_.max_linear_correction = 0.5;
 
     // Maximum ICP cycle iterations
     if (!nh_private_.getParam ("max_iterations", input_.max_iterations))
-      input_.max_iterations = 10;
+      input_.max_iterations = 5;
 
     // A threshold for stopping (m)
     if (!nh_private_.getParam ("epsilon_xy", input_.epsilon_xy))
@@ -49,11 +48,11 @@ namespace laser_slam
 
     // A threshold for stopping (rad)
     if (!nh_private_.getParam ("epsilon_theta", input_.epsilon_theta))
-      input_.epsilon_theta = 0.001;
+      input_.epsilon_theta = 0.01;
 
     // Maximum distance for a correspondence to be valid
     if (!nh_private_.getParam ("max_correspondence_dist", input_.max_correspondence_dist))
-      input_.max_correspondence_dist = 0.40;
+      input_.max_correspondence_dist = 1.0;
 
     // Noise in the scan (m)
     if (!nh_private_.getParam ("sigma", input_.sigma))
@@ -69,7 +68,7 @@ namespace laser_slam
 
     // Restart: Threshold for restarting
     if (!nh_private_.getParam ("restart_threshold_mean_error", input_.restart_threshold_mean_error))
-      input_.restart_threshold_mean_error = 0.01;
+      input_.restart_threshold_mean_error = 1;
 
     // Restart: displacement for restarting. (m)
     if (!nh_private_.getParam ("restart_dt", input_.restart_dt))
@@ -77,7 +76,7 @@ namespace laser_slam
 
     // Restart: displacement for restarting. (rad)
     if (!nh_private_.getParam ("restart_dtheta", input_.restart_dtheta))
-      input_.restart_dtheta = 0.1;
+      input_.restart_dtheta = 1.0;
 
     // Max distance for staying in the same clustering
     if (!nh_private_.getParam ("clustering_threshold", input_.clustering_threshold))
@@ -85,7 +84,7 @@ namespace laser_slam
 
     // Number of neighbour rays used to estimate the orientation
     if (!nh_private_.getParam ("orientation_neighbourhood", input_.orientation_neighbourhood))
-      input_.orientation_neighbourhood = 20;//20;
+      input_.orientation_neighbourhood = 10;//20;
 
     // If 0, it's vanilla ICP
     if (!nh_private_.getParam ("use_point_to_line_distance", input_.use_point_to_line_distance))
@@ -219,7 +218,7 @@ namespace laser_slam
       prev_ldp_scan->estimate[i] = 0;
       prev_ldp_scan->true_pose[i] = 0;
     }
-    input_.laser_sens  = curr_ldp_scan;
+    input_.laser_sens = curr_ldp_scan;
     input_.laser_ref = prev_ldp_scan;
 
 
@@ -361,12 +360,12 @@ namespace laser_slam
           ldp->readings[i] = -1;  // for invalid range
         }
         ldp->theta[i] = angles::normalize_angle_positive(
-            atan2(cloud.points[i].y, cloud.points[i].x) - MIN_THETA) + MIN_THETA;
+            atan2(cloud.points[i].y, cloud.points[i].x) - min_theta) + min_theta;
         ldp->cluster[i]  = -1;
       }
       ldp->min_theta = ldp->theta[0];
       ldp->max_theta = ldp->theta[n-1];
-//      printf("LDP: theta[0] = %f, theta[n] = %f\n",ldp->min_theta, ldp->max_theta);
+      //printf("LDP: theta[0] = %f, theta[n] = %f\n",ldp->min_theta, ldp->max_theta);
     }
 
     ldp->odometry[0] = 0.0;
