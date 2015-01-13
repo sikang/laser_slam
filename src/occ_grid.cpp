@@ -139,22 +139,19 @@ namespace laser_slam{
       ystep = -1;
     for ( int x = start.x; x < end.x; x++) 
     {
-      int index;
       int2 test_p;
       if (steep) 
       {
-        index = y + x * dim_.x;
         test_p.x = y;
         test_p.y = x;
       }
       else
       {
-        index = x + y * dim_.x;
         test_p.x = x;
         test_p.y = y;
       }
       if (GetCell(test_p, cell))
-          DecSafe(*cell);
+        DecSafe(*cell);
       error -= delta_y;
       if (error < 0) {
         y += ystep;
