@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(laser_slam)
 
-find_package(catkin_simple REQUIRED COMPONENTS cmake_modules)
+find_package(catkin_simple REQUIRED)
+find_package(cmake_modules)
+find_package(Eigen REQUIRED)
 include_directories(${EIGEN_INCLUDE_DIRS})
 
 catkin_simple()

@@ -1,17 +1,19 @@
-#### scan filter params ####
-idx_width: 38
-idx_middle: 198
-height_idx_low: 0
-height_idx_up: 10
+idx_width: 55
+idx_middle: 388
+height_idx_low: -15
+height_idx_up: -5
+min_ang_idx: 38
+
+laser_offset_x: 0.0
+laser_offset_y: 0.0
+laser_offset_z: 0.0
  
-#### grid params ####
 occ_res: 0.1
 cloud_res: 0.08
-shift_yaw: 0.0
+shift_yaw: -1.5708
 
-min_theta: -2.357
+min_theta: -3.927
 
-#### csm params ####
 max_angular_correction_deg: 2.5
 max_linear_correction: 0.5
 max_iterations: 5

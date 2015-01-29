@@ -18,6 +18,11 @@ namespace laser_slam
         0, 0, 0.0001;
     X = Eigen::Vector3d::Zero();
     Rp = Eigen::Matrix3d::Identity();
+
+
+    laser_offset_x = -0.02;
+    laser_offset_y = 0.07;
+    laser_offset_z = 0.273;
   } 
 
   
@@ -25,15 +30,20 @@ namespace laser_slam
   {
   }
 
+  void HeightEstimation::set_laser_offset(double _x, double _y, double _z)
+  {
+    laser_offset_x = _x;
+    laser_offset_y = _y;
+    laser_offset_z = _z;
+  }
 
   void HeightEstimation::process_height_measure(double height)
   {
     if (!kalman_init_flag)
       return; 
 
-    double height_scan = height - 0.045;  //Minus the distance from scan to mirror
     //Transform height scan to horizontal frame
-    Eigen::Vector3d h(-0.02, 0.07, -(height_scan - 0.228));
+    Eigen::Vector3d h(laser_offset_x, laser_offset_y, -(height - laser_offset_z));
     Eigen::Vector3d hGlobal = Rp * h;
     double curr_laser_h = -hGlobal(2);
     // Handle floor levels

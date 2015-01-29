@@ -36,7 +36,7 @@ static Eigen::Vector3d ypr_ = Eigen::Vector3d::Zero();
 
 static int num_scan_ = 0;
 static int decay_rate_;
-static std::string frame_id_;
+static std::string world_frame;
 static double occ_res_;
 static double cloud_res_;
 static double shift_yaw_;
@@ -90,7 +90,7 @@ void publishOdom(const geometry_msgs::PoseStamped& pose)
 void update_map(const sensor_msgs::PointCloud& cloud_curr)
 {
   sensor_msgs::PointCloud cloud_curr_w = 
-    scan_utils.transform_cloud(cloud_curr, curr_pose_, frame_id_);
+    scan_utils.transform_cloud(cloud_curr, curr_pose_, world_frame);
 
   if(num_scan_ > decay_rate_)
   {
@@ -115,7 +115,7 @@ void update_map(const sensor_msgs::PointCloud& cloud_curr)
 
   scan_matcher.pointCloudToLDP(prev_cloud_b, prev_ldp_);
 
-  prev_cloud_w_ = scan_utils.transform_cloud(prev_cloud_b, curr_pose_, frame_id_);
+  prev_cloud_w_ = scan_utils.transform_cloud(prev_cloud_b, curr_pose_, world_frame);
 
   curr_cloud_pub.publish(cloud_curr);
 }
@@ -126,14 +126,15 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 {
   ros::Time t0 = ros::Time::now();
 
-  laser_header_.stamp = msg->header.stamp;
-  laser_header_.frame_id = frame_id_;
+  laser_header_ = msg->header;
 
-  std::vector<double> height_array;
+  double laser_height, laser_height_cov;
 
-  sensor_msgs::LaserScan scan_out = scan_utils.scan_filter(*msg, height_array);
+  sensor_msgs::LaserScan scan_out = scan_utils.scan_filter(*msg, laser_height, laser_height_cov);
+  if(laser_height_cov > 0.1)
+    ROS_WARN_THROTTLE(1, "Laser height = %f, cov = %f", laser_height, laser_height_cov);
 
-  height_estimation.process_height_measure(height_array[5]);
+  height_estimation.process_height_measure(laser_height);
 
   sensor_msgs::PointCloud cloud = scan_utils.scan_to_cloud(scan_out, shift_yaw_);
   cloud.header = laser_header_;
@@ -170,8 +171,8 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     double dt = (ros::Time::now() - t1).toSec();
     if(dt > 0.01)
       ROS_WARN("Time cost for process scan matcher: %f", dt);
-    else
-      ROS_INFO("Time cost for process scan matcher: %f", dt);
+   // else
+   //   ROS_INFO("Time cost for process scan matcher: %f", dt);
 
 
     update_map(cloud_curr);
@@ -183,7 +184,7 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     ROS_WARN("Points [%zu, %zu]", prev_cloud_w_.points.size(), cloud_curr.points.size());
     ROS_WARN("Time cost for process one scan: %f", dt);
   }
-  map_pub.publish(occ_grid.GetMap(frame_id_).map); 
+  map_pub.publish(occ_grid.GetMap(world_frame).map); 
 }
 
 void imuCallback(const sensor_msgs::Imu::ConstPtr& msg)
@@ -231,19 +232,25 @@ int main(int argc, char ** argv)
   ros::NodeHandle nh("~");
  
   nh.param("decay_rate", decay_rate_, -1);
-  nh.param("frame_id", frame_id_, std::string("map"));
+  nh.param("frame_id", world_frame, std::string("map"));
   ROS_WARN("LaserSlam: decay_rate = %d", decay_rate_);
 
 
-  int idx_width, idx_middle, height_idx_low, height_idx_up;
+  // Scan filter params
+  int idx_width, idx_middle, height_idx_low, height_idx_up, min_ang_idx;
   double min_theta, range_theta;
   nh.param("idx_width", idx_width, 38);
   nh.param("idx_middle", idx_middle, 968);
   nh.param("height_idx_low", height_idx_low, 0);
   nh.param("height_idx_up", height_idx_up, 10);
-
+  nh.param("min_ang_idx", min_ang_idx, 0);
   nh.param("min_theta", min_theta, -M_PI/2);
   nh.param("range_theta", range_theta, M_PI*7/4);
+  // Height estimation params
+  double laser_offset_x, laser_offset_y, laser_offset_z;
+  nh.param("laser_offset_x", laser_offset_x, -0.02);
+  nh.param("laser_offset_y", laser_offset_y, 0.07);
+  nh.param("laser_offset_z", laser_offset_z, 0.273);
 
   nh.param("shift_yaw", shift_yaw_, M_PI/4);
 
@@ -254,7 +261,11 @@ int main(int argc, char ** argv)
   occ_grid.SetRes(occ_res_);
   scan_utils.init_scan_filter(idx_width, idx_middle,
       height_idx_low, height_idx_up,
-      min_theta, range_theta);
+      min_theta, range_theta,
+      min_ang_idx);
+  height_estimation.set_laser_offset(laser_offset_x,
+      laser_offset_y, laser_offset_z);
+  ROS_WARN("min_ang_idx: %d", min_ang_idx);
 
   R_ = Eigen::Matrix3d::Identity();
   first_scan_ = true;

@@ -25,11 +25,12 @@ namespace laser_slam
       sensor_msgs::PointCloud down_sample_cloud(const sensor_msgs::PointCloud& cloud, double res);
       sensor_msgs::PointCloud voxel_filter(const sensor_msgs::PointCloud& cloud, double res);
       void sort_cloud(sensor_msgs::PointCloud& cloud);
-      sensor_msgs::LaserScan scan_filter(const sensor_msgs::LaserScan& scan, std::vector<double>& heights);
+      sensor_msgs::LaserScan scan_filter(const sensor_msgs::LaserScan& scan, double& mean, double& stdev);
       sensor_msgs::PointCloud scan_to_cloud(const sensor_msgs::LaserScan& scan, double theta = 0.0);
       void init_scan_filter(int _idx_width, int _idx_middle, 
           int _height_idx_low, int _height_idx_up,
-          double _min_theta, double _range_theta);
+          double _min_theta, double _range_theta,
+          int min_ang_idx);
 
     private:
       int idx_width;
@@ -39,6 +40,8 @@ namespace laser_slam
 
       int min_theta;
       int range_theta;
+
+      int min_ang_idx;
   };
 
 }

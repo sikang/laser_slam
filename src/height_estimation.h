@@ -17,6 +17,7 @@ namespace laser_slam
     public:
       HeightEstimation();
       ~HeightEstimation();
+      void set_laser_offset(double x, double y, double z);
       void process_height_measure(double height);
       void process_imu(const sensor_msgs::Imu& imu, const Eigen::Matrix3d& _Rp);
       double get_height(){return X(0);};
@@ -37,6 +38,11 @@ namespace laser_slam
       Eigen::Matrix<double,1,1> R;    // Measurement noise, from Laser
       Eigen::Matrix3d P;    // Overall covariance
       Eigen::Matrix3d Rp;    // Overall covariance
+
+      double laser_offset_x;
+      double laser_offset_y;
+      double laser_offset_z;
+
   };
 
 }

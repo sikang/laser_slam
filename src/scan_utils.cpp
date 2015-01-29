@@ -123,9 +123,9 @@ namespace laser_slam
     cloud_ptr->header = scan.header;
     float angle_min = scan.angle_min + theta;
     float angle_increment = scan.angle_increment;
-    for(size_t i = 0; i < scan.ranges.size(); i++)
+    for(size_t i = min_ang_idx; i < scan.ranges.size() - min_ang_idx; i++)
     {
-      if(0.5 <= scan.ranges[i] && scan.ranges[i] <= scan.range_max){
+      if(0.1 <= scan.ranges[i] && scan.ranges[i] <= scan.range_max){
         float curr_angle = angle_min + i * angle_increment;
         float x = scan.ranges[i]*cos(curr_angle);
         float y = scan.ranges[i]*sin(curr_angle);
@@ -162,7 +162,8 @@ namespace laser_slam
 
   void ScanUtils::init_scan_filter(int _idx_width, int _idx_middle, 
       int _height_idx_low, int _height_idx_up,
-      double _min_theta, double _range_theta)
+      double _min_theta, double _range_theta,
+      int _min_ang_idx)
   {
     idx_width = _idx_width;
     idx_middle = _idx_middle;
@@ -171,17 +172,33 @@ namespace laser_slam
 
     min_theta = _min_theta;
     range_theta = _range_theta;
+
+    min_ang_idx = _min_ang_idx;
   }
 
 
-  sensor_msgs::LaserScan ScanUtils::scan_filter(const sensor_msgs::LaserScan& scan, std::vector<double>& heights)
+
+  sensor_msgs::LaserScan ScanUtils::scan_filter(const sensor_msgs::LaserScan& scan, double &median, double &stdev)
   {
+    std::vector<double> heights;
+
     sensor_msgs::LaserScan scan_filtered = scan;
     for(int k = -idx_width; k < idx_width; k++){
       if(k >= height_idx_low && k <= height_idx_up)
         heights.push_back(scan_filtered.ranges[idx_middle + k]);
       scan_filtered.ranges[idx_middle + k] = std::numeric_limits<float>::quiet_NaN();
     }
+
+
+    std::sort (heights.begin(), heights.end());
+    median = heights[heights.size() / 2];
+
+    double sum = std::accumulate(heights.begin(), heights.end(), 0.0);
+    double mean = sum / heights.size();
+
+    double sq_sum = std::inner_product(heights.begin(), heights.end(), heights.begin(), 0.0);
+    stdev = std::sqrt(sq_sum / heights.size() - mean * mean);
+
     return scan_filtered;
   }
 
