@@ -7,10 +7,9 @@
     output="screen">
     <remap from="~scan_in" to="laser/scan"/>
     <remap from="~imu_in" to="$(arg imu_msg)"/>
-    <remap from="~output_data" to="output_data"/>
     <remap from="~odom" to="odom"/>
-    <param name="decay_rate" value="49"/>
     <rosparam file="$(find laser_slam)/config/khex.yaml"/>
+    <param name="decay_rate" value="49"/>
   </node>
 
   <node pkg="quadrotor_ukf"

@@ -21,3 +21,7 @@ epsilon_xy: 0.001
 epsilon_theta: 0.01
 max_correspondence_dist: 1.0
 do_compute_covariance: 0
+
+  
+decay_rate: 49
+frame_id: map

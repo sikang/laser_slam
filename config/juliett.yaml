@@ -1,14 +1,19 @@
-#### scan filter params ####
 idx_width: 38
 idx_middle: 968
 height_idx_low: 0
 height_idx_up: 10
+min_ang_idx: 0
  
-#### grid params ####
+laser_offset_x: -0.02
+laser_offset_y: 0.07
+laser_offset_z: 0.273
+ 
 occ_res: 0.1
 cloud_res: 0.08
+shift_yaw: 0.7854
 
-#### csm params ####
+min_theta: -1.5708
+
 max_angular_correction_deg: 2.5
 max_linear_correction: 0.5
 max_iterations: 5
@@ -16,3 +21,6 @@ epsilon_xy: 0.001
 epsilon_theta: 0.01
 max_correspondence_dist: 1.0
 do_compute_covariance: 0
+
+decay_rate: 49
+frame_id: map

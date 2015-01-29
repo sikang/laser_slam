@@ -13,11 +13,11 @@ OccGrid occ_grid;
 CanonicalScan scan_matcher;
 HeightEstimation height_estimation;
 
-static ros::Publisher raw_laser_cloud_pub;
+static ros::Publisher laser_cloud_pub;
 static ros::Publisher prev_cloud_pub;
 static ros::Publisher curr_cloud_pub;
-static ros::Publisher covar_pub;
-static ros::Publisher pose_pub;
+//static ros::Publisher covar_pub;
+//static ros::Publisher pose_pub;
 static ros::Publisher odom_pub;
 static ros::Publisher map_pub;
 
@@ -41,6 +41,7 @@ static double occ_res_;
 static double cloud_res_;
 static double shift_yaw_;
 
+/*
 void covarPub(const gtsam::Matrix& m, Eigen::Vector3d& v)
 {
   Eigen::Quaterniond q;
@@ -71,6 +72,8 @@ void covarPub(const gtsam::Matrix& m, Eigen::Vector3d& v)
     covar_pub.publish(covar);
   }
 }
+*/
+
 
 void publishOdom(const geometry_msgs::PoseStamped& pose)
 {
@@ -138,7 +141,7 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 
   sensor_msgs::PointCloud cloud = scan_utils.scan_to_cloud(scan_out, shift_yaw_);
   cloud.header = laser_header_;
-  raw_laser_cloud_pub.publish(cloud);
+  laser_cloud_pub.publish(cloud);
   sensor_msgs::PointCloud cloud2d = scan_utils.project_cloud(R_, cloud);
   sensor_msgs::PointCloud cloud_curr = scan_utils.down_sample_cloud(cloud2d, cloud_res_);
 
@@ -164,16 +167,14 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     curr_pose_ = curr_pose_.compose(pose_diff);
     gtsam::Pose3 curr_pose3 = transferPose2ToPose3(curr_pose_, height_estimation.get_height(), ypr_(2), ypr_(1));
     geometry_msgs::PoseStamped pose_stamped = transferPoseToPoseStamped(curr_pose3, laser_header_);
-    pose_pub.publish(pose_stamped);
-
     //covarPub(noise_matrix);
+    //pose_pub.publish(pose_stamped);
     publishOdom(pose_stamped);
     double dt = (ros::Time::now() - t1).toSec();
     if(dt > 0.01)
       ROS_WARN("Time cost for process scan matcher: %f", dt);
    // else
    //   ROS_INFO("Time cost for process scan matcher: %f", dt);
-
 
     update_map(cloud_curr);
   }
@@ -246,6 +247,7 @@ int main(int argc, char ** argv)
   nh.param("min_ang_idx", min_ang_idx, 0);
   nh.param("min_theta", min_theta, -M_PI/2);
   nh.param("range_theta", range_theta, M_PI*7/4);
+
   // Height estimation params
   double laser_offset_x, laser_offset_y, laser_offset_z;
   nh.param("laser_offset_x", laser_offset_x, -0.02);
@@ -275,11 +277,15 @@ int main(int argc, char ** argv)
   ros::Subscriber scan_sub = nh.subscribe("scan_in", 10, scanCallback);
   ros::Subscriber imu_sub = nh.subscribe("imu_in", 10, imuCallback);
   ros::Subscriber outputdata_sub = nh.subscribe("output_data", 10, outputdataCallback);
-  raw_laser_cloud_pub = nh.advertise<sensor_msgs::PointCloud>("raw_laser_cloud", 10);
+  laser_cloud_pub = nh.advertise<sensor_msgs::PointCloud>("laser_cloud", 10);
+
   prev_cloud_pub = nh.advertise<sensor_msgs::PointCloud>("prev_cloud", 10);
   curr_cloud_pub = nh.advertise<sensor_msgs::PointCloud>("curr_cloud", 10);
-  covar_pub = nh.advertise<visualization_msgs::Marker>("covar", 10);
-  pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose", 10);
+
+  // Disable covariance from csm
+  // covar_pub = nh.advertise<visualization_msgs::Marker>("covar", 10);
+  // Disable pose pub
+  // pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose", 10);
   odom_pub = nh.advertise<nav_msgs::Odometry>("odom", 10);
   map_pub = nh.advertise<nav_msgs::OccupancyGrid>("map", 5);
 
