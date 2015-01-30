@@ -20,7 +20,6 @@ namespace laser_slam
 
     input_.min_reading = csm_range_min_;
     input_.max_reading = csm_range_max_;
-    noise_vector6 << 0.01, 0.01, 0.01, 0.01, 0.01, 0.01;
     // **** What predictions are available to speed up the ICP?
     // 1) imu - [theta] from imu yaw angle - /odom topic
     // 2) odom - [x, y, theta] from wheel odometry - /imu topic
@@ -236,64 +235,6 @@ namespace laser_slam
       output_rel_pose = gtsam::Pose2(output_.x[0], output_.x[1], output_.x[2]);
       //bool valid;
       //noise_matrix = gsl_to_gtsam_matrix(output_.cov_x_m, valid);
-    }
-
-    return output_.valid;
-  }
-
-  bool CanonicalScan::processScan(const LDP& curr_ldp_scan, const LDP& prev_ldp_scan,
-      const gtsam::Pose3& initial_rel_pose, gtsam::Pose3& output_rel_pose,
-      gtsam::noiseModel::Gaussian::shared_ptr& icp_cov,
-      gtsam::Matrix& noise_matrix)
-  {
-    // CSM is used in the following way:
-    // The scans are always in the laser frame
-    // The reference scan (prevLDPcan_) has a pose of 0
-    // The new scan (currLDPScan) has a pose equal to the movement
-    // of the laser in the laser frame since the last scan
-    // The computed correction is then propagated using the tf machinery
-
-    for(unsigned int i = 0; i < 3; i++)
-    {
-      prev_ldp_scan->odometry[i] = 0;
-      prev_ldp_scan->estimate[i] = 0;
-      prev_ldp_scan->true_pose[i] = 0;
-    }
-    input_.laser_ref  = curr_ldp_scan;
-    input_.laser_sens = prev_ldp_scan;
-
-    // **** estimated change since last scan
-
-    input_.first_guess[0] = initial_rel_pose.x();
-    input_.first_guess[1] = initial_rel_pose.y();
-    input_.first_guess[2] = initial_rel_pose.rotation().yaw();
-
-    // *** scan match - using icp (xy means x and y are already computed)
-    //sm_icp_xy(&input_, &output_);
-    sm_icp(&input_, &output_);
-
-    if (output_.valid)
-    {
-      // the correction of the laser's position, in the laser frame
-
-      //printf("%f, %f, %f\n", output_.x[0], output_.x[1], output_.x[2]);
-      gtsam::Point3 rel_point(output_.x[0], output_.x[1], initial_rel_pose.z());
-      gtsam::Rot3 q = gtsam::Rot3::ypr(output_.x[2], initial_rel_pose.rotation().pitch(), initial_rel_pose.rotation().roll());
-      output_rel_pose = gtsam::Pose3(q, rel_point);
-      bool valid;
-      noise_matrix = gsl_to_gtsam_matrix(output_.cov_x_m, valid);
-      if(valid)
-        //icp_cov = gtsam::noiseModel::Gaussian::Covariance(upgrade_pose2_pose3_cov(gsl_to_gtsam_matrix(output_.cov_x_m, valid)));
-        //icp_cov = gtsam::noiseModel::Gaussian::Covariance(upgrade_pose2_pose3_cov(noise_matrix));
-        icp_cov = gtsam::noiseModel::Diagonal::Sigmas(noise_vector6);
-      else 
-        // Fake covariance!
-        icp_cov = gtsam::noiseModel::Diagonal::Sigmas(noise_vector6);
-      //icp_cov = gtsam::noiseModel::Diagonal::Sigmas(gtsam::Vector_(6,0.001,0.001,0.001,0.001,0.001,0.001));
-    }
-    else
-    {
-      output_rel_pose = gtsam::Pose3();
     }
 
     return output_.valid;
