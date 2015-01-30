@@ -120,7 +120,7 @@ void update_map(const sensor_msgs::PointCloud& cloud_curr)
 
   prev_cloud_w_ = scan_utils.transform_cloud(prev_cloud_b, curr_pose_, world_frame);
 
-  curr_cloud_pub.publish(cloud_curr);
+  curr_cloud_pub.publish(cloud_curr_w);
 }
 
 
@@ -233,7 +233,7 @@ int main(int argc, char ** argv)
   ros::NodeHandle nh("~");
  
   nh.param("decay_rate", decay_rate_, -1);
-  nh.param("frame_id", world_frame, std::string("map"));
+  nh.param("world_frame", world_frame, std::string("map"));
   ROS_WARN("LaserSlam: decay_rate = %d", decay_rate_);
 
 

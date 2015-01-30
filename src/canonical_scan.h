@@ -8,7 +8,6 @@
 #undef max
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/LaserScan.h>
-#include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Pose2.h>
 #include <gtsam/linear/NoiseModel.h>
 #include <angles/angles.h>

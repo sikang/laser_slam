@@ -83,7 +83,7 @@ namespace laser_slam
 
     // Number of neighbour rays used to estimate the orientation
     if (!nh_private_.getParam ("orientation_neighbourhood", input_.orientation_neighbourhood))
-      input_.orientation_neighbourhood = 10;//20;
+      input_.orientation_neighbourhood = 50;
 
     // If 0, it's vanilla ICP
     if (!nh_private_.getParam ("use_point_to_line_distance", input_.use_point_to_line_distance))
@@ -151,15 +151,17 @@ namespace laser_slam
     printf("max_angular_correction_deg: %f\n", input_.max_angular_correction_deg);
     printf("epsilon_xy: %f\n", input_.epsilon_xy);
     printf("epsilon_theta: %f\n", input_.epsilon_theta);
+    printf("outliers_maxPerc: %f\n", input_.outliers_maxPerc);
+    printf("outliers_adaptive_order: %f\n", input_.outliers_adaptive_order);
     printf("CSM_ initialized !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n\n\n\n");
   }
 
   gtsam::Matrix upgrade_pose2_pose3_cov(const  gtsam::Matrix& dp2)
   {
     gtsam::Matrix mat = gtsam::zeros(6,6);
-    for (unsigned int i = 0; i<6; i++)
+    for (int i = 0; i < 6; i++)
     {
-      for (unsigned int j = 0; j<6; j++)
+      for (int j = 0; j < 6; j++)
       {
         if (i == j)
           mat(i,j) = 0.01;
