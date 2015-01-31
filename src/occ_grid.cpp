@@ -1,4 +1,4 @@
-#include "occ_grid.h"
+#include <csm_utils/occ_grid.h>
 
 #define MAP_IDX(sx, i, j) ((sx) * (j) + (i))
 #define VAL_UNKNOWN -1

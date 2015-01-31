@@ -1,4 +1,4 @@
-#include "canonical_scan.h"
+#include <csm_utils/canonical_scan.h>
 
 
 namespace laser_slam

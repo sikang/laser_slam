@@ -7,13 +7,13 @@ find_package(Eigen REQUIRED)
 include_directories(${EIGEN_INCLUDE_DIRS})
 
 catkin_simple()
-
-cs_add_executable(laser_slam src/laser_slam_node.cpp
+cs_add_library(csm_utils 
   src/scan_utils.cpp
   src/occ_grid.cpp
   src/height_estimation.cpp
   src/canonical_scan.cpp)
-target_link_libraries(laser_slam gtsam)
+cs_add_executable(laser_slam src/laser_slam_node.cpp)
+target_link_libraries(laser_slam csm_utils gtsam)
 
 cs_install()
 

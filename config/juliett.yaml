@@ -8,22 +8,21 @@ laser_offset_x: -0.02
 laser_offset_y: 0.07
 laser_offset_z: 0.273
  
-occ_res: 0.1
+occ_res: 0.05
 cloud_res: 0.05
 shift_yaw: 0.7854
 
 min_theta: -1.5708
 
-max_angular_correction_deg: 5
-max_linear_correction: 0.2
-max_iterations: 20
-epsilon_xy: 0.00001
-epsilon_theta: 0.00001
+max_angular_correction_deg: 25
+max_linear_correction: 0.5
+max_iterations: 10
+epsilon_xy: 0.001
+epsilon_theta: 0.01
 max_correspondence_dist: 0.3
-do_compute_covariance: 0
-outliers_maxPerc: 0.99
-outliers_adaptive_order: 0.98
-outliers_adaptive_mult: 5.0
+do_compute_covariance: 1
+outliers_maxPerc: 0.9
+outliers_adaptive_order: 0.7
 
-decay_rate: 49
+decay_rate: 99
 frame_id: map

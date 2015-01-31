@@ -1,10 +1,11 @@
 #include <ros/ros.h>
+#include <tf/tf.h>
 #include <visualization_msgs/Marker.h>
 #include <gtsam_util.h>
-#include "occ_grid.h"
-#include "canonical_scan.h"
-#include "scan_utils.hpp"
-#include "height_estimation.h"
+#include <csm_utils/occ_grid.h>
+#include <csm_utils/canonical_scan.h>
+#include <csm_utils/scan_utils.hpp>
+#include <csm_utils/height_estimation.h>
 
 using namespace laser_slam;
 
@@ -26,6 +27,7 @@ static bool first_scan_;
 static bool first_imu_;
 static double prev_yaw_imu_;
 static std_msgs::Header laser_header_;
+static nav_msgs::Odometry prev_odom_;
 
 static gtsam::Pose2 curr_pose_;
 static gtsam::Pose2 predicted_pose_;
@@ -178,7 +180,7 @@ void scanCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
 
     update_map(cloud_curr);
   }
-  predicted_pose_ = gtsam::Pose2();
+  predicted_pose_ = gtsam::Pose2(0.0, 0.0, 0.0);
 
   double dt = (ros::Time::now() - t0).toSec();
   if(dt > 0.020){
@@ -214,6 +216,7 @@ void imuCallback(const sensor_msgs::Imu::ConstPtr& msg)
     prev_yaw_imu_ = ypr_(0);
   } 
 }
+
 
 void outputdataCallback(const quadrotor_msgs::OutputData::ConstPtr& msg)
 {

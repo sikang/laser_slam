@@ -1,4 +1,4 @@
-#include "scan_utils.hpp"
+#include <csm_utils/scan_utils.hpp>
 #include <stdio.h>
 
 namespace laser_slam
